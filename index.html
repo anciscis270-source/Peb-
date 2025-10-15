@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Al-Qur'an Digital Interaktif</title>
+<style>
+  body {
+    margin: 0;
+    font-family: 'Poppins', sans-serif;
+    background-color: #0f172a;
+    color: #f8fafc;
+    scroll-behavior: smooth;
+  }
+  header {
+    text-align: center;
+    padding: 20px;
+    background-color: #1e293b;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  h1 {
+    font-size: 1.6em;
+    color: #38bdf8;
+  }
+  select {
+    padding: 10px;
+    border-radius: 10px;
+    border: none;
+    background: #334155;
+    color: #fff;
+    font-size: 1em;
+    margin-top: 10px;
+  }
+  .ayat {
+    margin: 20px auto;
+    max-width: 800px;
+    padding: 20px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 12px;
+    transition: background 0.5s;
+  }
+  .ayat:hover {
+    background: rgba(255,255,255,0.1);
+  }
+  .arab {
+    font-size: 1.9em;
+    direction: rtl;
+    text-align: right;
+    color: #facc15;
+    cursor: pointer;
+    user-select: none;
+  }
+  .arab:hover {
+    color: #fde68a;
+  }
+  .latin {
+    font-size: 1em;
+    color: #93c5fd;
+    margin-top: 5px;
+  }
+  .terjemahan {
+    margin-top: 5px;
+    font-size: 0.95em;
+    color: #e2e8f0;
+  }
+  audio { display: none; }
+  .active {
+    background: rgba(56,189,248,0.15);
+    border-left: 4px solid #38bdf8;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>📖 Al-Qur'an Digital</h1>
+  <select id="surahSelect" onchange="loadSurah()">
+    <option value="">-- Pilih Surah --</option>
+  </select>
+</header>
+
+<main id="quranContainer"></main>
+
+<script>
+const surahSelect = document.getElementById('surahSelect');
+const container = document.getElementById('quranContainer');
+
+// 🔹 Ambil daftar surah dari API
+fetch('https://api.quran.gading.dev/surah')
+  .then(res => res.json())
+  .then(data => {
+    data.data.forEach(surah => {
+      const opt = document.createElement('option');
+      opt.value = surah.number;
+      opt.textContent = `${surah.number}. ${surah.name.transliteration.id} (${surah.name.translation.id})`;
+      surahSelect.appendChild(opt);
+    });
+  });
+
+// 🔹 Fungsi untuk menampilkan ayat
+function loadSurah() {
+  const id = surahSelect.value;
+  if (!id) return;
+  container.innerHTML = '<p style="text-align:center;">⏳ Memuat surah...</p>';
+
+  fetch(`https://api.quran.gading.dev/surah/${id}`)
+    .then(res => res.json())
+    .then(data => {
+      const surah = data.data;
+      container.innerHTML = `
+        <h2 style="text-align:center;margin-top:20px;color:#38bdf8;">
+          ${surah.name.transliteration.id} (${surah.name.translation.id})
+        </h2>
+        <p style="text-align:center;color:#94a3b8;">${surah.revelation.id} - ${surah.numberOfVerses} ayat</p>
+      `;
+
+      surah.verses.forEach((ayat, index) => {
+        const div = document.createElement('div');
+        div.className = 'ayat';
+        div.id = `ayat-${index}`;
+        div.innerHTML = `
+          <div class="arab" onclick="playAyat(${index}, '${ayat.audio.primary}')">${ayat.text.arab}</div>
+          <div class="latin">${ayat.text.transliteration.en}</div>
+          <div class="terjemahan">${ayat.translation.id}</div>
+          <audio id="audio-${index}" src="${ayat.audio.primary}"></audio>
+        `;
+        container.appendChild(div);
+      });
+    });
+}
+
+// 🔊 Mainkan suara saat klik teks Arab + auto scroll
+function playAyat(index, url) {
+  const audio = document.getElementById(`audio-${index}`);
+  if (!audio) return;
+  
+  // Hentikan semua audio lain
+  document.querySelectorAll("audio").forEach(a => { a.pause(); a.currentTime = 0; });
+  document.querySelectorAll(".ayat").forEach(div => div.classList.remove("active"));
+
+  // Mainkan audio ayat ini
+  audio.play();
+  const ayatDiv = document.getElementById(`ayat-${index}`);
+  ayatDiv.classList.add("active");
+  ayatDiv.scrollIntoView({ behavior: "smooth", block: "center" });
+
+  // Setelah audio selesai → lanjut auto scroll
+  audio.onended = () => {
+    ayatDiv.classList.remove("active");
+    const nextAyat = document.getElementById(`ayat-${index + 1}`);
+    if (nextAyat) {
+      nextAyat.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  };
+}
+</script>
+
+</body>
+</html>
